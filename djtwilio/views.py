@@ -5,10 +5,14 @@ from django.shortcuts import render
 from django.http import HttpResponseRedirect
 
 from .forms import NameForm, Phase3Form
+from .models import IVRCall
 from twilio.rest import TwilioRestClient
 from settings import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
 import time
 
+import json
+from django.http import HttpResponse
+from django.core import serializers
 
 def get_name(request):
     # if this is a POST request we need to process the form data
@@ -64,7 +68,52 @@ def make_outbound_call(to_number, time_delay=0):
                            from_="+18329245668", # Must be a valid Twilio number
                           url="https://49777df2.ngrok.io/gather/")
     ##Save call in Database
+    save_call_record(to_number, call.sid, time_delay)
     return call.sid
+
+
+def save_call_record(phone_number, call_sid, time_delay):
+    try:
+        call_record = IVRCall(phone_number=phone_number, time_delay = time_delay, call_sid = call_sid)
+        call_record.save()
+        print call_record.id, 'record saved'
+    except Exception as e:
+        print 'exception in saving call record', e
+
+def update_call_record(phone_number, call_sid, digits):
+    try:
+        call_record = IVRCall.objects.get(phone_number=phone_number, call_sid = call_sid)
+        call_record.digit_entered = digits
+        call_record.save()
+        print call_record.id, 'record updated with time delay'
+    except Exception as e:
+        print 'exception in updating call record', e
+
+def call_records_json(request):
+    calls = IVRCall.objects.all()
+    data = serializers.serialize("json", calls)
+    return HttpResponse(data, content_type='application/json')
+
+def previous_call(request):
+    phone_number = request.GET['phone_number']
+    digit_entered = request.GET['digits']
+    client = TwilioRestClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    
+    # Make the call
+    call = client.calls.create(to=to_number,  # Any phone number
+                           from_="+18329245668", # Must be a valid Twilio number
+                          url="https://49777df2.ngrok.io/replay/?digits="+digit_entered)
+
+@twilio_view
+def handle_replay_message(request):
+    digits = request.GET['digits']
+
+    msg = get_fizzbuzz_message(int(digits))
+
+    twilio_response = Response()
+    twilio_response.say(msg)
+
+    return twilio_response
 
 @twilio_view
 def gather_digits(request):
@@ -84,12 +133,15 @@ def gather_digits(request):
 def handle_response(request):
 
     digits = request.POST.get('Digits', '')
-    print 'digits', digits
+    to_number = request.POST.get('To', '')
+    call_sid = request.POST.get('CallSid', '')
+    print 'digits', digits, to_number, call_sid
 
     twilio_response = Response()
     return_message = get_fizzbuzz_message(int(digits))
     print return_message
     twilio_response.say(return_message)
+    update_call_record(to_number, call_sid, digits)
 
     # if digits == '1':
     #     twilio_response.play('http://bit.ly/phaltsw')

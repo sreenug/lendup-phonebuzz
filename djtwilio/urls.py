@@ -10,4 +10,7 @@ urlpatterns = patterns('',
     url(r'^respond/$', 'djtwilio.views.handle_response'),
     url(r'^fizzbuzz/', 'djtwilio.views.get_name'),
     url(r'^phase3/', 'djtwilio.views.phase3'),
+    url(r'^getcalls/', 'djtwilio.views.call_records_json'),
+    url(r'^replay/?$', 'djtwilio.views.handle_replay_message'),
+    url(r'^previouscall/?$', 'djtwilio.views.previous_call'),
 )
