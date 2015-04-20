@@ -9,4 +9,5 @@ urlpatterns = patterns('',
     url(r'^gather/$', 'djtwilio.views.gather_digits'),
     url(r'^respond/$', 'djtwilio.views.handle_response'),
     url(r'^fizzbuzz/', 'djtwilio.views.get_name'),
+    url(r'^phase3/', 'djtwilio.views.phase3'),
 )

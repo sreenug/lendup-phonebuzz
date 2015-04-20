@@ -4,9 +4,10 @@ from twilio.twiml import Response
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
 
-from .forms import NameForm
+from .forms import NameForm, Phase3Form
 from twilio.rest import TwilioRestClient
 from settings import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
+import time
 
 
 def get_name(request):
@@ -29,14 +30,40 @@ def get_name(request):
 
     return render(request, 'name.html', {'form': form})
 
+def phase3(request):
+    # if this is a POST request we need to process the form data
+    if request.method == 'POST':
+        # create a form instance and populate it with data from the request:
+        form = Phase3Form(request.POST)
+        # check whether it's valid:
+        if form.is_valid():
+            # process the data in form.cleaned_data as required
+            # ...
+            # redirect to a new URL:
+            phone_number = form.cleaned_data['phone_number']
+            time_delay = form.cleaned_data['time_delay']
+            print phone_number, time_delay
+            sid = make_outbound_call(phone_number, time_delay)
+            return HttpResponseRedirect('/phase3')
 
-def make_outbound_call(to_number):
+    # if a GET (or any other method) we'll create a blank form
+    else:
+        form = Phase3Form()
+
+    return render(request, 'name.html', {'form': form})
+
+def make_outbound_call(to_number, time_delay=0):
+    print time_delay, str(to_number), "+"+str(to_number.country_code)+str(to_number.national_number)
+    time.sleep(time_delay)
+    print 'time delay done'
+    to_number = "+"+str(to_number.country_code)+str(to_number.national_number)
     client = TwilioRestClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
- 
+    
     # Make the call
-    call = client.calls.create(to="+1"+to_number,  # Any phone number
+    call = client.calls.create(to=to_number,  # Any phone number
                            from_="+18329245668", # Must be a valid Twilio number
-                           url="https://49777df2.ngrok.io/gather/")
+                          url="https://49777df2.ngrok.io/gather/")
+    ##Save call in Database
     return call.sid
 
 @twilio_view

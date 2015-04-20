@@ -1,5 +1,5 @@
-<form action="/fizzbuzz/" method="post">
+<form action="/phase3/" method="post">
     {% csrf_token %}
-    {{ form }}
+    {{ form.as_ul }}
     <input type="submit" value="Submit" />
 </form>
