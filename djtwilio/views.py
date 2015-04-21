@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from django_twilio.decorators import twilio_view
 from twilio.twiml import Response
-from django.shortcuts import render
+from django.shortcuts import render, render_to_response
 from django.http import HttpResponseRedirect
 
 from .forms import NameForm, Phase3Form
@@ -13,6 +13,10 @@ import time
 import json
 from django.http import HttpResponse
 from django.core import serializers
+
+def home(request):
+    # home page loading..Final Phase
+    return render_to_response('home.html')
 
 def get_name(request):
     # if this is a POST request we need to process the form data
@@ -33,6 +37,17 @@ def get_name(request):
         form = NameForm()
 
     return render(request, 'name.html', {'form': form})
+
+def make_call(request):
+    # Going to make a call
+    if request.method == 'GET':
+        # create a form instance and populate it with data from the request:
+        phone_number = request.GET['phone_number']
+        time_delay = request.GET['time_delay']
+        print 'make call',phone_number, time_delay
+        sid = make_outbound_call(phone_number, int(time_delay))
+        return HttpResponse('Call successfully placed')
+
 
 def phase3(request):
     # if this is a POST request we need to process the form data
@@ -57,16 +72,22 @@ def phase3(request):
     return render(request, 'name.html', {'form': form})
 
 def make_outbound_call(to_number, time_delay=0):
-    print time_delay, str(to_number), "+"+str(to_number.country_code)+str(to_number.national_number)
+    print type(to_number)
+    if isinstance(to_number, unicode):
+    	to_number = to_number
+    else:
+    	to_number = "+"+str(to_number.country_code)+str(to_number.national_number)
+    
+    print time_delay, to_number
     time.sleep(time_delay)
     print 'time delay done'
-    to_number = "+"+str(to_number.country_code)+str(to_number.national_number)
+    
     client = TwilioRestClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
     
     # Make the call
     call = client.calls.create(to=to_number,  # Any phone number
                            from_="+18329245668", # Must be a valid Twilio number
-                          url="https://49777df2.ngrok.io/gather/")
+                          url="https://2605c80f.ngrok.io/gather/")
     ##Save call in Database
     save_call_record(to_number, call.sid, time_delay)
     return call.sid
@@ -95,18 +116,23 @@ def call_records_json(request):
     return HttpResponse(data, content_type='application/json')
 
 def previous_call(request):
-    phone_number = request.GET['phone_number']
-    digit_entered = request.GET['digits']
+    call_id = request.GET['id']
+    call_object = IVRCall.objects.get(pk = call_id)
+    to_number = call_object.phone_number
+    digit_entered = call_object.digit_entered
+    print 'in previous call func', to_number, digit_entered
     client = TwilioRestClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
     
     # Make the call
     call = client.calls.create(to=to_number,  # Any phone number
                            from_="+18329245668", # Must be a valid Twilio number
-                          url="https://49777df2.ngrok.io/replay/?digits="+digit_entered)
+                          url="https://2605c80f.ngrok.io/replay/?digits="+str(digit_entered))
+    return HttpResponse('success')
 
 @twilio_view
 def handle_replay_message(request):
     digits = request.GET['digits']
+    print 'through replay',digits
 
     msg = get_fizzbuzz_message(int(digits))
 
@@ -118,7 +144,7 @@ def handle_replay_message(request):
 @twilio_view
 def gather_digits(request):
 
-    msg = 'Ahoy. Press a number to enter the world of Fizz Buzz'
+    msg = 'Oye. Press a number to enter the world of Fizz Buzz'
 
     twilio_response = Response()
     with twilio_response.gather(action='/respond/', numDigits=1) as g:
@@ -142,14 +168,6 @@ def handle_response(request):
     print return_message
     twilio_response.say(return_message)
     update_call_record(to_number, call_sid, digits)
-
-    # if digits == '1':
-    #     twilio_response.play('http://bit.ly/phaltsw')
-
-    # if digits == '2':
-    #     number = request.POST.get('From', '')
-    #     twilio_response.say('A text message is on its way')
-    #     twilio_response.sms('You looking lovely today!', to=number)
 
     return twilio_response
 
