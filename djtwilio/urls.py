@@ -8,7 +8,7 @@ urlpatterns = patterns('',
     #  Here we add our Twilio URLs
     url(r'^gather/$', 'djtwilio.views.gather_digits'),
     url(r'^respond/$', 'djtwilio.views.handle_response'),
-    url(r'^phase2/', 'djtwilio.views.get_name'),
+    url(r'^phase2/', 'djtwilio.views.get_phase2'),
     url(r'^fizzbuzz/', 'djtwilio.views.home'),
     url(r'^phase3/', 'djtwilio.views.phase3'),
     url(r'^getcalls/', 'djtwilio.views.call_records_json'),

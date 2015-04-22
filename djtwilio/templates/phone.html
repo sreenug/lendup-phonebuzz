@@ -1,5 +1,7 @@
-<form action="/phase3/" method="post">
+<form action="/phase2/" method="post">
     {% csrf_token %}
     {{ form.as_ul }}
     <input type="submit" value="Submit" />
+    </br>
+    <p>{{success}}</p>
 </form>

@@ -1,42 +1,46 @@
-# -*- coding: utf-8 -*-
-from django_twilio.decorators import twilio_view
-from twilio.twiml import Response
-from django.shortcuts import render, render_to_response
-from django.http import HttpResponseRedirect
-
-from .forms import NameForm, Phase3Form
-from .models import IVRCall
-from twilio.rest import TwilioRestClient
-from settings import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
+import json
+import sched
 import time
 
-import json
-from django.http import HttpResponse
 from django.core import serializers
+from django.http import HttpResponseRedirect
+from django.http import HttpResponse
+from django.shortcuts import render, render_to_response
+from django_twilio.decorators import twilio_view
+from twilio.rest import TwilioRestClient
+from twilio.twiml import Response
+
+from .forms import PhoneForm, Phase3Form
+from .models import IVRCall
+from .api import *
+from settings import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
+
+
 
 def home(request):
     # home page loading..Final Phase
     return render_to_response('home.html')
 
-def get_name(request):
-    # if this is a POST request we need to process the form data
+def get_phase2(request):
+    success=""
+    # Create a form
     if request.method == 'POST':
         # create a form instance and populate it with data from the request:
-        form = NameForm(request.POST)
+        form = PhoneForm(request.POST)
         # check whether it's valid:
         if form.is_valid():
             # process the data in form.cleaned_data as required
             # ...
-            # redirect to a new URL:
+            # redirect to /phase2 again after success:
             phone_number = form.cleaned_data['phone_number']
-            sid = make_outbound_call(phone_number)
-            return HttpResponseRedirect('/fizzbuzz')
+            #sid = make_outbound_call(phone_number)
+            success = 'Call Placed. Please contact us if you get any error.'
 
-    # if a GET (or any other method) we'll create a blank form
+    # if a GET we'll create a blank form
     else:
-        form = NameForm()
+        form = PhoneForm()
 
-    return render(request, 'name.html', {'form': form})
+    return render(request, 'phone.html', {'form': form, 'success': success})
 
 def make_call(request):
     # Going to make a call
@@ -50,6 +54,7 @@ def make_call(request):
 
 
 def phase3(request):
+    success=""
     # if this is a POST request we need to process the form data
     if request.method == 'POST':
         # create a form instance and populate it with data from the request:
@@ -62,16 +67,19 @@ def phase3(request):
             phone_number = form.cleaned_data['phone_number']
             time_delay = form.cleaned_data['time_delay']
             print phone_number, time_delay
-            sid = make_outbound_call(phone_number, time_delay)
-            return HttpResponseRedirect('/phase3')
+            message = make_outbound_call(phone_number, time_delay)
+            
+            success = message + " With Call Placing."
+            #return HttpResponseRedirect('/phase3')
 
     # if a GET (or any other method) we'll create a blank form
     else:
         form = Phase3Form()
 
-    return render(request, 'name.html', {'form': form})
+    return render(request, 'phase3.html', {'form': form, 'success': success})
 
 def make_outbound_call(to_number, time_delay=0):
+    message = "success"
     print type(to_number)
     if isinstance(to_number, unicode):
     	to_number = to_number
@@ -81,39 +89,18 @@ def make_outbound_call(to_number, time_delay=0):
     print time_delay, to_number
     time.sleep(time_delay)
     print 'time delay done'
-    
-    client = TwilioRestClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    try:
+    	client = TwilioRestClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
     
     # Make the call
-    call = client.calls.create(to=to_number,  # Any phone number
+    	call = client.calls.create(to=to_number,  # Any phone number
                            from_="+18329245668", # Must be a valid Twilio number
                           url="https://2605c80f.ngrok.io/gather/")
+    except Exception as e:
+    	message = "error"
     ##Save call in Database
     save_call_record(to_number, call.sid, time_delay)
-    return call.sid
-
-
-def save_call_record(phone_number, call_sid, time_delay):
-    try:
-        call_record = IVRCall(phone_number=phone_number, time_delay = time_delay, call_sid = call_sid)
-        call_record.save()
-        print call_record.id, 'record saved'
-    except Exception as e:
-        print 'exception in saving call record', e
-
-def update_call_record(phone_number, call_sid, digits):
-    try:
-        call_record = IVRCall.objects.get(phone_number=phone_number, call_sid = call_sid)
-        call_record.digit_entered = digits
-        call_record.save()
-        print call_record.id, 'record updated with time delay'
-    except Exception as e:
-        print 'exception in updating call record', e
-
-def call_records_json(request):
-    calls = IVRCall.objects.all()
-    data = serializers.serialize("json", calls)
-    return HttpResponse(data, content_type='application/json')
+    return message
 
 def previous_call(request):
     call_id = request.GET['id']
@@ -144,10 +131,10 @@ def handle_replay_message(request):
 @twilio_view
 def gather_digits(request):
 
-    msg = 'Oye. Press a number to enter the world of Fizz Buzz'
+    msg = 'Oye. Press a number to enter the world of Fizz Buzz. You can press maximum two digits'
 
     twilio_response = Response()
-    with twilio_response.gather(action='/respond/', numDigits=1) as g:
+    with twilio_response.gather(action='/respond/', numDigits=2) as g:
         g.say(msg)
         g.pause(length=1)
         g.say(msg)
@@ -165,7 +152,7 @@ def handle_response(request):
 
     twilio_response = Response()
     return_message = get_fizzbuzz_message(int(digits))
-    print return_message
+    return_message = return_message + ". Thank you."
     twilio_response.say(return_message)
     update_call_record(to_number, call_sid, digits)
 
