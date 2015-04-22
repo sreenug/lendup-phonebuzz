@@ -13,6 +13,7 @@ from twilio.twiml import Response
 from .forms import PhoneForm, Phase3Form
 from .models import IVRCall
 from .api import *
+from .tasks import *
 from settings import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
 
 
@@ -49,7 +50,8 @@ def make_call(request):
         phone_number = request.GET['phone_number']
         time_delay = request.GET['time_delay']
         print 'make call',phone_number, time_delay
-        sid = make_outbound_call(phone_number, int(time_delay))
+        #make_outbound_call.delay(phone_number, int(time_delay))
+        message = make_outbound_call(phone_number, int(time_delay))
         return HttpResponse('Call successfully placed')
 
 
@@ -69,7 +71,7 @@ def phase3(request):
             print phone_number, time_delay
             message = make_outbound_call(phone_number, time_delay)
             
-            success = message + " With Call Placing."
+            success = "Call Placed in a queue. Please check the status after sometime in phase4."
             #return HttpResponseRedirect('/phase3')
 
     # if a GET (or any other method) we'll create a blank form
@@ -79,28 +81,7 @@ def phase3(request):
     return render(request, 'phase3.html', {'form': form, 'success': success})
 
 def make_outbound_call(to_number, time_delay=0):
-    message = "success"
-    print type(to_number)
-    if isinstance(to_number, unicode):
-    	to_number = to_number
-    else:
-    	to_number = "+"+str(to_number.country_code)+str(to_number.national_number)
-    
-    print time_delay, to_number
-    time.sleep(time_delay)
-    print 'time delay done'
-    try:
-    	client = TwilioRestClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    
-    # Make the call
-    	call = client.calls.create(to=to_number,  # Any phone number
-                           from_="+18329245668", # Must be a valid Twilio number
-                          url="https://2605c80f.ngrok.io/gather/")
-    except Exception as e:
-    	message = "error"
-    ##Save call in Database
-    save_call_record(to_number, call.sid, time_delay)
-    return message
+    ivr_outbound_call.apply_async((to_number, int(time_delay)), countdown=int(time_delay))
 
 def previous_call(request):
     call_id = request.GET['id']

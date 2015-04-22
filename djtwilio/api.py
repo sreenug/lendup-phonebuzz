@@ -12,8 +12,9 @@ def save_call_record(phone_number, call_sid, time_delay):
 
 def update_call_record(phone_number, call_sid, digits):
     try:
-        call_record = IVRCall.objects.get(phone_number=phone_number, call_sid = call_sid, call_state='Complete')
+        call_record = IVRCall.objects.get(call_sid = call_sid)
         call_record.digit_entered = digits
+        call_record.call_state = "Complete"
         call_record.save()
         print call_record.id, 'record updated with time delay'
     except Exception as e:

@@ -43,6 +43,7 @@
                   <th>PhoneNumber</th>
                   <th>Call Date and Time</th>
                   <th>Digit Pressed</th>
+                  <th>State</th>
                   <th>Delay</th>
                   <th>Action</th>
                 </tr>
@@ -87,7 +88,7 @@ $("#call-form").submit(function() {
     	alert( "error");
   	})
   	.done(function( msg ) {
-    	alert( "Call will be placed and digit will be updated." );
+    	alert( "Call is placed in queue. You can check the status after some time" );
     	update_calls();
   });
   return false;
@@ -106,7 +107,8 @@ $.getJSON( "/getcalls", function( data ) {
 	   time_delay = val.fields.time_delay;
 	   date_time = val.fields.call_time;
 	   digit = val.fields.digit_entered;
-	   tr_html += "<tr><td>"+id+"</td><td>"+phone_number+"</td><td>"+date_time+"</td><td>"+digit+"</td><td>"+time_delay + " seconds</td><td><a onclick='replay("+id+")' class='btn btn-success'>Replay</a></td></tr>"
+	   call_state=val.fields.call_state
+	   tr_html += "<tr><td>"+id+"</td><td>"+phone_number+"</td><td>"+date_time+"</td><td>"+digit+"</td><td>"+call_state+"</td><td>"+time_delay + " seconds</td><td><a onclick='replay("+id+")' class='btn btn-success'>Replay</a></td></tr>"
 		
 	  });
 	  $("#data_table").append(tr_html);
