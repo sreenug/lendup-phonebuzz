@@ -34,7 +34,7 @@ def get_phase2(request):
             # ...
             # redirect to /phase2 again after success:
             phone_number = form.cleaned_data['phone_number']
-            #sid = make_outbound_call(phone_number)
+            make_outbound_call(phone_number)
             success = 'Call Placed. Please contact us if you get any error.'
 
     # if a GET we'll create a blank form
